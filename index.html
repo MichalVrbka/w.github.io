@@ -1,11 +1,99 @@
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>W</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden; 
+            background: radial-gradient(circle at 24.1% 68.8%, rgb(50, 50, 50) 0%, rgb(0, 0, 0) 99.4%); 
+        }
+        canvas {
+            display: block;
+            margin: auto;
+            background-color: transparent; 
+        }
+    </style>
 </head>
 <body>
-    <h1 style="font-size: xx-large;"> W </h1>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const particles = [];
+        const numParticles = 800;
+        const radius = 200;       
+        let rotationAngleX = 0;
+        let rotationAngleY = 0;
+
+        function generateParticles() {
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5)); 
+
+            for (let i = 0; i < numParticles; i++) {
+                const theta = i * goldenAngle;
+                const y = (1 - (i / (numParticles - 1)) * 2) * radius; 
+                const r = Math.sqrt(radius ** 2 - y ** 2);              
+
+                const x = r * Math.cos(theta);
+                const z = r * Math.sin(theta);
+
+                particles.push({ x, y, z });
+            }
+        }
+
+        generateParticles();
+
+        function drawParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+
+            particles.forEach(particle => {
+                const yRot = particle.y * Math.cos(rotationAngleX) - particle.z * Math.sin(rotationAngleX);
+                const zRot = particle.y * Math.sin(rotationAngleX) + particle.z * Math.cos(rotationAngleX);
+
+                const xRot = particle.x * Math.cos(rotationAngleY) - zRot * Math.sin(rotationAngleY);
+                const finalZ = particle.x * Math.sin(rotationAngleY) + zRot * Math.cos(rotationAngleY);
+
+                const scale = 300 / (300 + finalZ);  
+                const x2D = xRot * scale;
+                const y2D = yRot * scale;
+
+                ctx.beginPath();
+                ctx.arc(x2D, y2D, 2 * scale, 0, Math.PI * 2);  
+
+                const grayShade = Math.floor(250 - (finalZ / radius) * 100); 
+                ctx.fillStyle = `rgb(${grayShade}, ${grayShade}, ${grayShade})`; 
+                ctx.globalAlpha = 0.9;  
+                
+                ctx.shadowBlur = 8; 
+                ctx.shadowColor = `rgb(${grayShade}, ${grayShade}, ${grayShade})`; 
+                
+                ctx.fill();
+            });
+
+            ctx.restore();
+        }
+
+        function animate() {
+            drawParticles();
+            rotationAngleX += 0.003; 
+            rotationAngleY += 0.002;  
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
 </body>
 </html>
