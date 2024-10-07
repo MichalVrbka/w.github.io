@@ -8,72 +8,114 @@
         body, html {
             margin: 0;
             padding: 0;
-            overflow: hidden; 
-            background: radial-gradient(circle at 24.1% 68.8%, rgb(50, 50, 50) 0%, rgb(0, 0, 0) 99.4%); 
+            overflow: hidden; /* Skryje posuvníky */
+            background: radial-gradient(circle at 24.1% 68.8%, rgb(50, 50, 50) 0%, rgb(0, 0, 0) 99.4%); /* Základní barva pozadí stránky */
         }
         canvas {
             display: block;
-            margin: auto;
-            background-color: transparent; 
+            background-color: transparent; /* Průhledné pozadí canvasu */
         }
     </style>
 </head>
 <body>
     <canvas id="canvas"></canvas>
     <script>
+        // Nastavitelné proměnné
+        let numParticles = 800;             // Počet částic v kouli (bude se měnit při změně velikosti okna)
+        let baseRadius;                     // Základní poloměr koule (bude dynamicky nastaven)
+        const radiusChangeSpeed = 0.003     // Rychlost změny poloměru koule
+        const radiusAmplitude = 10;         // Amplituda změny poloměru (maximální odchylka od základního poloměru)
+        const rotationSpeedX = 0.003;       // Rychlost rotace kolem osy X
+        const rotationSpeedY = 0.002;       // Rychlost rotace kolem osy Y
+        const particleSize = 8;             // Základní velikost částic (bez perspektivy)
+        const particleAlpha = 0.9;          // Průhlednost částic (0 - úplně průhledné, 1 - neprůhledné)
+        const shadowBlur = 8;               // Intenzita rozmazání stínu kolem částic
+        const perspectiveDistance = 300;    // Vzdálenost kamery od koule (čím větší, tím menší perspektiva)
+
+        // Nastavení canvasu
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
 
+        // Dynamické nastavení poloměru a počtu částic podle velikosti okna
+        function adjustSettings() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            // Základní poloměr je 20% z menšího rozměru okna
+            baseRadius = Math.min(canvas.width, canvas.height) * 0.2;
+
+            // Počet částic se bude měnit dle velikosti okna (800 je základ)
+            numParticles = Math.floor(800 * (canvas.width * canvas.height) / (1920 * 1080));
+            
+            // Pokud již existují částice, vygenerujeme je znovu
+            particles.length = 0;
+            generateParticles();
+        }
+
+        // Proměnné pro částice
         const particles = [];
-        const numParticles = 800;
-        const radius = 200;       
+        let radius = baseRadius; // Aktuální poloměr koule (bude se dynamicky měnit)
         let rotationAngleX = 0;
         let rotationAngleY = 0;
 
+        // Rovnoměrné umístění částic pomocí Fibonacciho spirály
         function generateParticles() {
-            const goldenAngle = Math.PI * (3 - Math.sqrt(5)); 
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // Zlatý úhel
 
             for (let i = 0; i < numParticles; i++) {
+                // Uložíme původní pozice částic do proměnné `original`
                 const theta = i * goldenAngle;
-                const y = (1 - (i / (numParticles - 1)) * 2) * radius; 
-                const r = Math.sqrt(radius ** 2 - y ** 2);              
+                const y = (1 - (i / (numParticles - 1)) * 2) * baseRadius; // Rozsah y od -baseRadius po baseRadius
+                const r = Math.sqrt(baseRadius ** 2 - y ** 2);              // Vzdálenost od středu
 
                 const x = r * Math.cos(theta);
                 const z = r * Math.sin(theta);
 
-                particles.push({ x, y, z });
+                particles.push({ x, y, z, original: { x, y, z } });
             }
         }
 
-        generateParticles();
+        // Inicializace částic
+        adjustSettings();
 
+        // Funkce pro vykreslení částic s 3D efektem
         function drawParticles() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height)
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Čištění oblasti bez barvení pozadí
             ctx.save();
-            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.translate(canvas.width / 2, canvas.height / 2);  // Přesuneme střed canvasu do středu obrazovky
 
             particles.forEach(particle => {
+                // Dynamická změna pozice částic podle nového poloměru
+                const scaleFactor = radius / baseRadius;
+                particle.x = particle.original.x * scaleFactor;
+                particle.y = particle.original.y * scaleFactor;
+                particle.z = particle.original.z * scaleFactor;
+
+                // Rotace kolem osy X
                 const yRot = particle.y * Math.cos(rotationAngleX) - particle.z * Math.sin(rotationAngleX);
                 const zRot = particle.y * Math.sin(rotationAngleX) + particle.z * Math.cos(rotationAngleX);
 
+                // Rotace kolem osy Y
                 const xRot = particle.x * Math.cos(rotationAngleY) - zRot * Math.sin(rotationAngleY);
                 const finalZ = particle.x * Math.sin(rotationAngleY) + zRot * Math.cos(rotationAngleY);
 
-                const scale = 300 / (300 + finalZ);  
+                // Perspektivní projekce (čím dál od kamery, tím menší se částice jeví)
+                const scale = perspectiveDistance / (perspectiveDistance + finalZ); // Upravit pro větší/méně perspektivní efekt
                 const x2D = xRot * scale;
                 const y2D = yRot * scale;
 
+                // Vykreslení částice
                 ctx.beginPath();
-                ctx.arc(x2D, y2D, 2 * scale, 0, Math.PI * 2);  
+                ctx.arc(x2D, y2D, particleSize * scale, 0, Math.PI * 2);  // Velikost částice dle perspektivy
 
-                const grayShade = Math.floor(250 - (finalZ / radius) * 100); 
-                ctx.fillStyle = `rgb(${grayShade}, ${grayShade}, ${grayShade})`; 
-                ctx.globalAlpha = 0.9;  
-                
-                ctx.shadowBlur = 8; 
-                ctx.shadowColor = `rgb(${grayShade}, ${grayShade}, ${grayShade})`; 
+                // Invertované barvy částic (blíže tmavší, dále světlejší)
+                const grayShade = Math.floor(250 - (finalZ / radius) * 100); // Vytvoření opačného šedého odstínu (250 - 150)
+                ctx.fillStyle = `rgb(${grayShade}, ${grayShade}, ${grayShade})`; // Nastavení tmavší šedé barvy blíže k pozorovateli
+                ctx.globalAlpha = particleAlpha;  // Nastavení průhlednosti částic
+
+                // Nastavení stínu pro světelný efekt
+                ctx.shadowBlur = shadowBlur; // Nastavení intenzity rozmazání stínu
+                ctx.shadowColor = `rgb(${grayShade}, ${grayShade}, ${grayShade})`; // Barva stínu odpovídá barvě částice
                 
                 ctx.fill();
             });
@@ -81,19 +123,23 @@
             ctx.restore();
         }
 
+        // Animační smyčka
         function animate() {
             drawParticles();
-            rotationAngleX += 0.003; 
-            rotationAngleY += 0.002;  
+
+            // Zvětšování a zmenšování poloměru pomocí sinusové funkce
+            radius = baseRadius + Math.sin(Date.now() * radiusChangeSpeed) * radiusAmplitude;  // Změna poloměru dle amplitudy
+
+            // Rotace kolem os
+            rotationAngleX += rotationSpeedX;
+            rotationAngleY += rotationSpeedY;
             requestAnimationFrame(animate);
         }
 
         animate();
 
-        window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        });
+        // Responzivní nastavení při změně velikosti okna
+        window.addEventListener('resize', adjustSettings);
     </script>
 </body>
 </html>
